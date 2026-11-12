@@ -133,7 +133,12 @@ HRESULT DirectWriteResources::InitResources(const wstring& label_font_face,
     decltype(fontFaceStrVector)().swap(fontFaceStrVector);
   };
   init_font(font_face, font_point, pTextFormat, wrapping);
-  init_font(font_face, font_point, pPreeditTextFormat, wrapping_preedit);
+  // [jk] preedit (pinyin) line may use its own font
+  init_font(_style.preedit_font_face.empty() ? font_face
+                                             : _style.preedit_font_face,
+            _style.preedit_font_point > 0 ? _style.preedit_font_point
+                                          : font_point,
+            pPreeditTextFormat, wrapping_preedit);
   init_font(label_font_face, label_font_point, pLabelTextFormat, wrapping);
   init_font(comment_font_face, comment_font_point, pCommentTextFormat,
             wrapping);

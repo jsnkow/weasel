@@ -1186,6 +1186,10 @@ static void _UpdateUIStyle(RimeConfig* config, UI* ui, bool initialize) {
                style.fixed_position);
   _RimeGetIntStr(config, "style/fixed_position/x", style.fixed_x);
   _RimeGetIntStr(config, "style/fixed_position/y", style.fixed_y);
+  _RimeGetIntStr(config, "style/preedit_font_face", style.preedit_font_face, 0,
+                 0, rmspace);
+  _RimeGetIntStr(config, "style/preedit_font_point", style.preedit_font_point,
+                 0, 0, _abs);
   const std::map<std::string, UIStyle::PreeditType> _preeditMap = {
       {std::string("composition"), UIStyle::COMPOSITION},
       {std::string("preview"), UIStyle::PREVIEW},

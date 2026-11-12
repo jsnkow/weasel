@@ -302,6 +302,10 @@ struct UIStyle {
   bool fixed_position;
   int fixed_x;
   int fixed_y;
+  // [jk] separate font for the preedit (pinyin) line; empty / 0 = use font_face
+  // / font_point
+  std::wstring preedit_font_face;
+  int preedit_font_point;
 
   UIStyle()
       : font_face(),
@@ -376,7 +380,9 @@ struct UIStyle {
         inline_candidate(false),
         fixed_position(false),
         fixed_x(0),
-        fixed_y(0) {}
+        fixed_y(0),
+        preedit_font_face(),
+        preedit_font_point(0) {}
   bool operator!=(const UIStyle& st) {
     return (
         align_type != st.align_type || antialias_mode != st.antialias_mode ||
@@ -438,7 +444,8 @@ struct UIStyle {
         nextpage_color != st.nextpage_color ||
         inline_candidate != st.inline_candidate ||
         fixed_position != st.fixed_position || fixed_x != st.fixed_x ||
-        fixed_y != st.fixed_y);
+        fixed_y != st.fixed_y || preedit_font_face != st.preedit_font_face ||
+        preedit_font_point != st.preedit_font_point);
   }
 };
 }  // namespace weasel
@@ -523,6 +530,8 @@ void serialize(Archive& ar, weasel::UIStyle& s, const unsigned int version) {
   ar & s.fixed_position;
   ar & s.fixed_x;
   ar & s.fixed_y;
+  ar & s.preedit_font_face;
+  ar & s.preedit_font_point;
 }
 
 template <typename Archive>

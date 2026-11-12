@@ -1169,6 +1169,31 @@ void WeaselPanel::_RepositionWindow(const bool& adj) {
   GetWindowRect(&rcWindow);
   int width = (rcWindow.right - rcWindow.left);
   int height = (rcWindow.bottom - rcWindow.top);
+  // [jk] fixed position on the monitor that has the input focus.
+  // x/y >= 0: from the left/top edge of the work area;
+  // x/y <  0: from the right/bottom edge (window's right/bottom side).
+  if (m_style.fixed_position) {
+    int fx = DPI_SCALE(m_style.fixed_x);
+    int fy = DPI_SCALE(m_style.fixed_y);
+    int x = (m_style.fixed_x >= 0) ? rcWorkArea.left + fx
+                                   : rcWorkArea.right + fx - width;
+    int y = (m_style.fixed_y >= 0) ? rcWorkArea.top + fy
+                                   : rcWorkArea.bottom + fy - height;
+    // keep panel visible
+    if (x > rcWorkArea.right - width)
+      x = rcWorkArea.right - width;
+    if (x < rcWorkArea.left)
+      x = rcWorkArea.left;
+    if (y > rcWorkArea.bottom - height)
+      y = rcWorkArea.bottom - height;
+    if (y < rcWorkArea.top)
+      y = rcWorkArea.top;
+    if (adj)
+      m_istorepos = false;
+    SetWindowPos(HWND_TOPMOST, x, y, 0, 0,
+                 SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOREDRAW);
+    return;
+  }
   // keep panel visible
   rcWorkArea.right -= width;
   rcWorkArea.bottom -= height;

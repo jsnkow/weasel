@@ -124,6 +124,7 @@ struct Context {
     preedit.clear();
     aux.clear();
     cinfo.clear();
+    inline_text.clear();
   }
   bool empty() const { return preedit.empty() && aux.empty() && cinfo.empty(); }
   bool operator==(const Context& ctx) {
@@ -143,6 +144,9 @@ struct Context {
   Text preedit;
   Text aux;
   CandidateInfo cinfo;
+  // [jk] text shown inline at the caret when style.inline_candidate is set
+  // (the panel keeps showing `preedit`)
+  Text inline_text;
 };
 // for icon type in tip
 enum IconType { SCHEMA, FULL_SHAPE };
@@ -291,6 +295,13 @@ struct UIStyle {
   int client_caps;
   int baseline;
   int linespacing;
+  // [jk] highlighted candidate inline at the caret, pinyin stays in the panel
+  bool inline_candidate;
+  // [jk] fixed panel position, relative to the work area of the active
+  // monitor; negative values are measured from the right / bottom edge
+  bool fixed_position;
+  int fixed_x;
+  int fixed_y;
 
   UIStyle()
       : font_face(),
@@ -361,7 +372,11 @@ struct UIStyle {
         nextpage_color(0),
         baseline(0),
         linespacing(0),
-        client_caps(0) {}
+        client_caps(0),
+        inline_candidate(false),
+        fixed_position(false),
+        fixed_x(0),
+        fixed_y(0) {}
   bool operator!=(const UIStyle& st) {
     return (
         align_type != st.align_type || antialias_mode != st.antialias_mode ||
@@ -420,7 +435,10 @@ struct UIStyle {
         hilited_comment_text_color != st.hilited_comment_text_color ||
         hilited_mark_color != st.hilited_mark_color ||
         prevpage_color != st.prevpage_color ||
-        nextpage_color != st.nextpage_color);
+        nextpage_color != st.nextpage_color ||
+        inline_candidate != st.inline_candidate ||
+        fixed_position != st.fixed_position || fixed_x != st.fixed_x ||
+        fixed_y != st.fixed_y);
   }
 };
 }  // namespace weasel
@@ -500,6 +518,11 @@ void serialize(Archive& ar, weasel::UIStyle& s, const unsigned int version) {
   ar & s.client_caps;
   ar & s.baseline;
   ar & s.linespacing;
+  // [jk] appended last, so stock clients reading this archive still work
+  ar & s.inline_candidate;
+  ar & s.fixed_position;
+  ar & s.fixed_x;
+  ar & s.fixed_y;
 }
 
 template <typename Archive>

@@ -905,6 +905,21 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
           }
           break;
       }
+      // [jk] inline_candidate: the panel keeps ctx.preedit (pinyin), while the
+      // text at the caret shows what would be committed (the highlighted
+      // candidate + any unconverted input).
+      if (session_status.style.inline_candidate &&
+          !session_status.style.inline_preedit && _IsSessionTSF(session_id)) {
+        const char* src = ctx.commit_text_preview ? ctx.commit_text_preview
+                                                  : ctx.composition.preedit;
+        std::string inl = src ? src : "";
+        std::string len =
+            std::to_string(utf8towcslen(inl.c_str(), (int)inl.size()));
+        messages.push_back(std::string("ctx.inline=") +
+                           escape_string<char>(inl) + '\n');
+        messages.push_back(std::string("ctx.inline.cursor=") + len + ',' +
+                           len + ',' + len + '\n');
+      }
     }
     if (ctx.menu.num_candidates) {
       CandidateInfo cinfo;
@@ -921,9 +936,12 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
 
   // configuration information
   actions.insert("config");
+  // [jk] inline_candidate also needs the client to write text at the caret
+  bool client_inline =
+      session_status.style.inline_preedit ||
+      (session_status.style.inline_candidate && _IsSessionTSF(session_id));
   messages.push_back(std::string("config.inline_preedit=") +
-                     std::to_string((int)session_status.style.inline_preedit) +
-                     '\n');
+                     std::to_string((int)client_inline) + '\n');
 
   // style
   if (!session_status.__synced) {
@@ -1161,6 +1179,13 @@ static void _UpdateUIStyle(RimeConfig* config, UI* ui, bool initialize) {
                style.inline_preedit);
   _RimeGetBool(config, "style/vertical_auto_reverse", initialize,
                style.vertical_auto_reverse);
+  // [jk] custom options
+  _RimeGetBool(config, "style/inline_candidate", initialize,
+               style.inline_candidate);
+  _RimeGetBool(config, "style/fixed_position/enabled", initialize,
+               style.fixed_position);
+  _RimeGetIntStr(config, "style/fixed_position/x", style.fixed_x);
+  _RimeGetIntStr(config, "style/fixed_position/y", style.fixed_y);
   const std::map<std::string, UIStyle::PreeditType> _preeditMap = {
       {std::string("composition"), UIStyle::COMPOSITION},
       {std::string("preview"), UIStyle::PREVIEW},

@@ -33,6 +33,11 @@ void ContextUpdater::Store(Deserializer::KeyType const& k,
     return;
   }
 
+  if (k[1] == L"inline") {
+    _StoreText(m_pTarget->p_context->inline_text, k, value);
+    return;
+  }
+
   if (k[1] == L"cand") {
     _StoreCand(k, value);
     return;

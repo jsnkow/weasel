@@ -1,0 +1,87 @@
+name: JK patched build
+
+# Builds only the binaries needed to patch an installed Weasel 0.17.4
+# (WeaselServer.exe, weasel.dll x86, weaselx64.dll) – no installer, no ARM.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ fixed-panel ]
+
+jobs:
+  build:
+    runs-on: windows-2022
+    env:
+      boost_version: 1.84.0
+      BOOST_ROOT: ${{ github.workspace }}\deps\boost_1_84_0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        shell: bash
+        run: git fetch --tags --force || true
+
+      - name: Configure build environment
+        shell: bash
+        run: cp env.vs2022.bat env.bat
+
+      - name: Cache Boost
+        id: cache-boost
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BOOST_ROOT }}
+          key: ${{ runner.os }}-vs2022-boost-${{ env.boost_version }}-x86x64
+
+      - name: Download Boost
+        if: steps.cache-boost.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force deps | Out-Null
+          Invoke-WebRequest "https://archives.boost.io/release/1.84.0/source/boost_1_84_0.7z" -OutFile deps\boost.7z
+          7z x deps\boost.7z -odeps -y | Out-Null
+
+      - name: Build Boost
+        if: steps.cache-boost.outputs.cache-hit != 'true'
+        shell: cmd
+        run: .\build.bat boost
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Get librime 1.13.1 (same as Weasel 0.17.4)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\get-rime.ps1 -use dev -tag 1.13.1
+          if (-not (Test-Path lib64\rime.lib)) { throw "librime not fetched" }
+
+      - name: Skip data build
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force output\data\opencc | Out-Null
+          if (-not (Test-Path output\data\essay.txt)) { Set-Content output\data\essay.txt "" }
+          if (-not (Test-Path output\data\opencc\TSCharacters.ocd2)) { Set-Content output\data\opencc\TSCharacters.ocd2 "" }
+
+      - name: Build Weasel (x64 + Win32)
+        shell: cmd
+        run: .\build.bat weasel
+
+      - name: Collect binaries
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $d = "jk-dist"
+          New-Item -ItemType Directory -Force $d | Out-Null
+          Copy-Item output\WeaselServer.exe, output\weasel.dll, output\weaselx64.dll $d
+          foreach ($f in "weasel.ime","weaselx64.ime","WeaselDeployer.exe") { if (Test-Path "output\$f") { Copy-Item "output\$f" $d } }
+          Get-ChildItem $d | Format-Table Name, Length
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: weasel-jk-0.17.4
+          path: jk-dist
+          if-no-files-found: error

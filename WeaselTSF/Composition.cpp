@@ -74,7 +74,8 @@ void WeaselTSF::_StartComposition(com_ptr<ITfContext> pContext,
                                   BOOL fCUASWorkaroundEnabled) {
   com_ptr<CStartCompositionEditSession> pStartCompositionEditSession;
   pStartCompositionEditSession.Attach(new CStartCompositionEditSession(
-      this, pContext, fCUASWorkaroundEnabled, _cand->style().inline_preedit));
+      this, pContext, fCUASWorkaroundEnabled,
+      _cand->style().inline_preedit || _cand->style().inline_candidate));
   _cand->StartUI();
   if (pStartCompositionEditSession != nullptr) {
     HRESULT hr;
@@ -262,7 +263,11 @@ class CInlinePreeditEditSession : public CEditSession {
 };
 
 STDAPI CInlinePreeditEditSession::DoEditSession(TfEditCookie ec) {
-  std::wstring preedit = _context->preedit.str;
+  // [jk] inline_candidate: the server sends a separate text for the caret
+  const weasel::Text& text = _context->inline_text.str.empty()
+                                 ? _context->preedit
+                                 : _context->inline_text;
+  std::wstring preedit = text.str;
 
   com_ptr<ITfRange> pRangeComposition;
   if (_pComposition == nullptr)
@@ -276,9 +281,9 @@ STDAPI CInlinePreeditEditSession::DoEditSession(TfEditCookie ec) {
 
   /* TODO: Check the availability and correctness of these values */
   int sel_cursor = -1;
-  for (size_t i = 0; i < _context->preedit.attributes.size(); i++) {
-    if (_context->preedit.attributes.at(i).type == weasel::HIGHLIGHTED) {
-      sel_cursor = _context->preedit.attributes.at(i).range.cursor;
+  for (size_t i = 0; i < text.attributes.size(); i++) {
+    if (text.attributes.at(i).type == weasel::HIGHLIGHTED) {
+      sel_cursor = text.attributes.at(i).range.cursor;
       break;
     }
   }

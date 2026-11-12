@@ -303,6 +303,38 @@ void RimeWithWeaselHandler::UpdateColorTheme(BOOL darkMode) {
   m_ui->style() = get_session_status(m_active_session).style;
 }
 
+// [jk] short clipboard text (<= 64 chars), re-read only when the clipboard
+// changes; handed to Lua scripts as the session property "jk_clipboard".
+static std::string _JkClipboardText() {
+  static DWORD last_seq = 0;
+  static std::string text;
+  DWORD seq = GetClipboardSequenceNumber();
+  if (seq == last_seq)
+    return text;
+  if (!IsClipboardFormatAvailable(CF_UNICODETEXT)) {
+    last_seq = seq;
+    text.clear();
+    return text;
+  }
+  if (!OpenClipboard(NULL))
+    return text;  // busy: try again on the next key
+  std::wstring w;
+  HANDLE h = GetClipboardData(CF_UNICODETEXT);
+  if (h) {
+    const wchar_t* p = (const wchar_t*)GlobalLock(h);
+    if (p) {
+      size_t n = wcsnlen(p, 65);
+      if (n <= 64)
+        w.assign(p, n);
+      GlobalUnlock(h);
+    }
+  }
+  CloseClipboard();
+  last_seq = seq;
+  text = wtou8(w);
+  return text;
+}
+
 BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
                                             WeaselSessionId ipc_id,
                                             EatLine eat) {
@@ -311,6 +343,10 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
   if (m_disabled)
     return FALSE;
   RimeSessionId session_id = to_session_id(ipc_id);
+  // [jk] make the clipboard available to Lua (F8 "match" in jk_match.lua)
+  if (!(keyEvent.mask & ibus::Modifier::RELEASE_MASK))
+    rime_api->set_property(session_id, "jk_clipboard",
+                           _JkClipboardText().c_str());
   Bool handled = rime_api->process_key(session_id, keyEvent.keycode,
                                        expand_ibus_modifier(keyEvent.mask));
   // vim_mode when keydown only

@@ -184,15 +184,22 @@ void WeaselServerApp::JkReloadSettingsGui() {
 }
 
 bool WeaselServerApp::JkOpenSettingsGui() {
+  // default: <Rime program folder>\DirectPinyin\DirectPinyinSettings.exe, i.e.
+  // next to weasel-x.y.z\, so it survives Weasel updates. A relative
+  // jk_settings/path is taken from that same Rime folder.
+  WCHAR self[MAX_PATH] = {0};
+  GetModuleFileNameW(NULL, self, _countof(self));
+  fs::path rime_dir = fs::path(self).parent_path().parent_path();
   fs::path exe = m_jk_settings_path.empty()
-                     ? WeaselUserDataPath() / L"settingsGUI" /
-                           L"DirectPinyinSettings.exe"
+                     ? rime_dir / L"DirectPinyin" / L"DirectPinyinSettings.exe"
                      : fs::path(m_jk_settings_path);
+  if (exe.is_relative())
+    exe = rime_dir / exe;
   if (!fs::exists(exe)) {
     std::wstring msg = L"DirectPinyin settings form not found:\n" +
                        exe.wstring() +
-                       L"\n\nSet jk_settings/path in weasel_jk.yaml, then "
-                       L"Deploy.";
+                       L"\n\nInstall it with patch\\install-weasel-patch.ps1 "
+                       L"(copies settingsGUI\\publish).";
     MessageBoxW(NULL, msg.c_str(), L"DirectPinyin", MB_OK | MB_ICONWARNING);
     return false;
   }

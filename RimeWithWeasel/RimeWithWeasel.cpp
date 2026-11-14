@@ -1077,6 +1077,19 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
   messages.push_back(std::string("config.inline_preedit=") +
                      std::to_string((int)client_inline) + '\n');
 
+  // [jk] settings-form key (lua jk_form.lua sets jk_open_settings=1): ask the
+  // server window to open the form, the same command as the tray menu item
+  {
+    char prop[8] = {0};
+    if (rime_api->get_property(session_id, "jk_open_settings", prop,
+                               sizeof(prop)) &&
+        prop[0] == '1') {
+      rime_api->set_property(session_id, "jk_open_settings", "");
+      if (HWND w = FindWindowW(WEASEL_IPC_WINDOW, NULL))
+        PostMessageW(w, WM_COMMAND, 40017 /* ID_WEASELTRAY_JK_SETTINGS */, 0);
+    }
+  }
+
   // [jk] vertical_menus: a horizontal list turns vertical while a menu is open
   {
     bool want = false;

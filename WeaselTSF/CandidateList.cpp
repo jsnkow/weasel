@@ -199,6 +199,10 @@ STDMETHODIMP CCandidateList::FinalizeExactCompositionString() {
 }
 
 void CCandidateList::UpdateUI(const Context& ctx, const Status& status) {
+  // [jk] apply a style change from the server while composing (e.g. the
+  // vertical_menus layout switch); stock code only copies it in StartUI()
+  if (_pbShow && _ui->style() != _style)
+    _ui->style() = _style;
   if (_ui->style().inline_preedit) {
     _ui->style().client_caps |= weasel::INLINE_PREEDIT_CAPABLE;
   } else {

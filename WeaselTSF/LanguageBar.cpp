@@ -338,6 +338,11 @@ void WeaselTSF::_HandleLangBarMenuSelect(UINT wID) {
     case ID_WEASELTRAY_FORUM:
       open(L"https://rime.im/discuss/");
       break;
+    case ID_WEASELTRAY_JK_SETTINGS:
+      // [jk] we run in the foreground app: let WeaselServer's form come to the front
+      AllowSetForegroundWindow(ASFW_ANY);
+      m_client.TrayCommand(wID);
+      break;
     default:
       m_client.TrayCommand(wID);
       break;

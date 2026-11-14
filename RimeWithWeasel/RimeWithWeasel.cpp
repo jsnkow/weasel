@@ -549,7 +549,8 @@ void RimeWithWeaselHandler::_ReadClientInfo(WeaselSessionId ipc_id,
 }
 
 void RimeWithWeaselHandler::_GetCandidateInfo(CandidateInfo& cinfo,
-                                              RimeContext& ctx) {
+                                              RimeContext& ctx,
+                                              RimeSessionId session_id) {
   cinfo.candies.resize(ctx.menu.num_candidates);
   cinfo.comments.resize(ctx.menu.num_candidates);
   cinfo.labels.resize(ctx.menu.num_candidates);

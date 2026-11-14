@@ -29,6 +29,10 @@ struct SessionStatus {
   RimeStatus status;
   bool __synced;
   RimeSessionId session_id;
+  // [jk] vertical_menus: layout to go back to when the menu closes
+  bool jk_menu_vertical = false;
+  weasel::UIStyle::LayoutType jk_saved_layout =
+      weasel::UIStyle::LAYOUT_HORIZONTAL;
 };
 typedef std::map<DWORD, SessionStatus> SessionStatusMap;
 typedef DWORD WeaselSessionId;

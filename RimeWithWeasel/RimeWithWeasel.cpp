@@ -836,9 +836,12 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
   }
 
   bool is_composing = false;
+  bool jk_in_switcher = false;
   RIME_STRUCT(RimeStatus, status);
   if (rime_api->get_status(session_id, &status)) {
     is_composing = !!status.is_composing;
+    jk_in_switcher = status.schema_id &&
+                     std::string(status.schema_id) == ".default";
     actions.insert("status");
     messages.push_back(std::string("status.ascii_mode=") +
                        std::to_string(status.is_ascii_mode) + '\n');
@@ -978,6 +981,28 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
       (session_status.style.inline_candidate && _IsSessionTSF(session_id));
   messages.push_back(std::string("config.inline_preedit=") +
                      std::to_string((int)client_inline) + '\n');
+
+  // [jk] vertical_menus: a horizontal list turns vertical while a menu is open
+  {
+    bool want = false;
+    if (session_status.style.vertical_menus) {
+      char prop[32] = {0};
+      want = jk_in_switcher ||
+             (rime_api->get_property(session_id, "jk_layout", prop,
+                                     sizeof(prop)) &&
+              std::string(prop) == "vertical");
+    }
+    if (want && session_status.style.layout_type == UIStyle::LAYOUT_HORIZONTAL) {
+      session_status.jk_saved_layout = session_status.style.layout_type;
+      session_status.style.layout_type = UIStyle::LAYOUT_VERTICAL;
+      session_status.jk_menu_vertical = true;
+      session_status.__synced = false;
+    } else if (!want && session_status.jk_menu_vertical) {
+      session_status.style.layout_type = session_status.jk_saved_layout;
+      session_status.jk_menu_vertical = false;
+      session_status.__synced = false;
+    }
+  }
 
   // style
   if (!session_status.__synced) {
@@ -1226,6 +1251,8 @@ static void _UpdateUIStyle(RimeConfig* config, UI* ui, bool initialize) {
                  0, rmspace);
   _RimeGetIntStr(config, "style/preedit_font_point", style.preedit_font_point,
                  0, 0, _abs);
+  _RimeGetBool(config, "style/vertical_menus", initialize,
+               style.vertical_menus);
   const std::map<std::string, UIStyle::PreeditType> _preeditMap = {
       {std::string("composition"), UIStyle::COMPOSITION},
       {std::string("preview"), UIStyle::PREVIEW},

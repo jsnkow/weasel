@@ -306,6 +306,10 @@ struct UIStyle {
   // / font_point
   std::wstring preedit_font_face;
   int preedit_font_point;
+  // [jk] server only (not sent to clients): show a vertical list while a menu
+  // is open (Ctrl+Shift+S switcher, or a Lua menu that sets the session
+  // property jk_layout=vertical, e.g. /s /o)
+  bool vertical_menus;
 
   UIStyle()
       : font_face(),
@@ -382,7 +386,8 @@ struct UIStyle {
         fixed_x(0),
         fixed_y(0),
         preedit_font_face(),
-        preedit_font_point(0) {}
+        preedit_font_point(0),
+        vertical_menus(true) {}
   bool operator!=(const UIStyle& st) {
     return (
         align_type != st.align_type || antialias_mode != st.antialias_mode ||

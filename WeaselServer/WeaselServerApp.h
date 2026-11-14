@@ -62,6 +62,11 @@ class WeaselServerApp {
 
  protected:
   void SetupMenuHandlers();
+  // [jk] DirectPinyin settings form: tray item + optional global hotkey
+  void JkReloadSettingsGui();  // reads jk_settings/{path,hotkey} from weasel.yaml
+  bool JkOpenSettingsGui();
+  std::wstring m_jk_settings_path;
+  bool m_jk_hotkey_registered = false;
 
   weasel::Server m_server;
   weasel::UI m_ui;

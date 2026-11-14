@@ -28,7 +28,15 @@ class ServerImpl : public CWindowImpl<ServerImpl, CWindow, ServerWinTraits>
   MESSAGE_HANDLER(WM_DWMCOLORIZATIONCOLORCHANGED, OnColorChange)
   MESSAGE_HANDLER(WM_SETTINGCHANGE, OnColorChange)
   MESSAGE_HANDLER(WM_COMMAND, OnCommand)
+  MESSAGE_HANDLER(WM_HOTKEY, OnHotKey)  // [jk] hotkey id = menu command id
   END_MSG_MAP()
+
+  LRESULT OnHotKey(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled) {
+    auto it = m_MenuHandlers.find((UINT)wParam);
+    if (it != m_MenuHandlers.end())
+      it->second();
+    return 0;
+  }
 
   LRESULT OnColorChange(UINT uMsg,
                         WPARAM wParam,

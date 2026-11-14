@@ -78,6 +78,15 @@ void weasel::VerticalLayout::DoLayout(CDCHandle dc, PDWR pDWR) {
   }
   /*  preedit and auxiliary rectangle calc end */
 
+  // [jk] expanded grid: grid_columns candidates per column, columns side by side
+  const bool jk_grid = _style.grid_columns > 0 && candidates_count > 0;
+  if (jk_grid) {
+    int gw = 0, gh = 0;
+    _JkLayoutGrid(pDWR, real_margin_x + offsetX, height + offsetY, false,
+                  base_offset, &gw, &gh);
+    height += gh;
+    width = max(width, gw + 2 * real_margin_x);
+  } else {
   /* Candidates */
   int comment_shift_width = 0; /* distance to the left of the candidate text */
   int max_candidate_width = 0; /* label + text */
@@ -187,6 +196,7 @@ void weasel::VerticalLayout::DoLayout(CDCHandle dc, PDWR pDWR) {
     _candidateRects[i].SetRect(real_margin_x + offsetX, hlTop,
                                width - real_margin_x + offsetX, hlBot);
   }
+  }  // [jk] end of non-grid candidates
 
   /* Trim the last spacing if no candidates */
   if (candidates_count == 0)
@@ -200,7 +210,8 @@ void weasel::VerticalLayout::DoLayout(CDCHandle dc, PDWR pDWR) {
   }
   UpdateStatusIconLayout(&width, &height);
   // candidate rectangle always align to right side, margin_x to the right edge
-  for (auto i = 0; i < candidates_count && i < MAX_CANDIDATES_COUNT; ++i) {
+  for (auto i = 0; !jk_grid && i < candidates_count && i < MAX_CANDIDATES_COUNT;
+       ++i) {
     int right =
         max(_candidateRects[i].right,
             _candidateRects[i].left - real_margin_x + width - real_margin_x);
@@ -233,6 +244,8 @@ void weasel::VerticalLayout::DoLayout(CDCHandle dc, PDWR pDWR) {
   CopyRect(_bgRect, _contentRect);
   _bgRect.DeflateRect(offsetX + 1, offsetY + 1);
   _PrepareRoundInfo(dc);
+  if (jk_grid)
+    _JkResetRoundInfo();
 
   // truely draw content size calculation
   _contentRect.DeflateRect(offsetX, offsetY);

@@ -394,6 +394,12 @@ void RimeWithWeaselHandler::SelectCandidateOnCurrentPage(
              << ", index = " << index;
   if (m_disabled)
     return;
+  // [jk] expanded grid: the panel's index counts from the first row shown
+  int start = _JkGridStart(to_session_id(ipc_id));
+  if (start >= 0) {
+    rime_api->select_candidate(to_session_id(ipc_id), start + index);
+    return;
+  }
   rime_api->select_candidate_on_current_page(to_session_id(ipc_id), index);
 }
 
@@ -403,8 +409,12 @@ bool RimeWithWeaselHandler::HighlightCandidateOnCurrentPage(
     EatLine eat) {
   DLOG(INFO) << "highlight candidate on current page, ipc_id = " << ipc_id
              << ", index = " << index;
-  bool res = rime_api->highlight_candidate_on_current_page(
-      to_session_id(ipc_id), index);
+  int start = _JkGridStart(to_session_id(ipc_id));  // [jk] expanded grid
+  bool res = start >= 0
+                 ? rime_api->highlight_candidate(to_session_id(ipc_id),
+                                                 start + index)
+                 : rime_api->highlight_candidate_on_current_page(
+                       to_session_id(ipc_id), index);
   _Respond(ipc_id, eat);
   _UpdateUI(ipc_id);
   return res;
@@ -415,7 +425,14 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
                                        EatLine eat) {
   DLOG(INFO) << "change page, ipc_id = " << ipc_id
              << (backward ? "backward" : "foreward");
-  bool res = rime_api->change_page(to_session_id(ipc_id), backward);
+  // [jk] expanded grid: one "page" is all the rows shown
+  int cols = 0, count = 0;
+  int pages = (_JkGridStart(to_session_id(ipc_id), &cols, &count) >= 0)
+                  ? count / cols
+                  : 1;
+  bool res = false;
+  for (int p = 0; p < pages; ++p)
+    res = rime_api->change_page(to_session_id(ipc_id), backward) || res;
   _Respond(ipc_id, eat);
   _UpdateUI(ipc_id);
   return res;
@@ -554,6 +571,83 @@ void RimeWithWeaselHandler::_GetCandidateInfo(CandidateInfo& cinfo,
   cinfo.highlighted = ctx.menu.highlighted_candidate_index;
   cinfo.currentPage = ctx.menu.page_no;
   cinfo.is_last_page = ctx.menu.is_last_page;
+
+  // [jk] expanded grid: send all rows of the "big page" around the highlight.
+  // Rime's own page stays one row, so number keys still pick within the row.
+  int cols = 0, count = 0;
+  int start = _JkGridStart(session_id, &cols, &count);
+  if (start < 0)
+    return;
+  std::vector<std::wstring> row_labels;
+  for (const auto& l : cinfo.labels)
+    row_labels.push_back(l.str);
+  std::vector<std::wstring> texts, comments;
+  bool more = false;
+  RimeCandidateListIterator it = {0};
+  if (!rime_api->candidate_list_from_index(session_id, &it, start))
+    return;
+  while (rime_api->candidate_list_next(&it)) {
+    if ((int)texts.size() >= count) {
+      more = true;
+      break;
+    }
+    texts.push_back(escape_string(u8tow(it.candidate.text)));
+    comments.push_back(it.candidate.comment
+                           ? escape_string(u8tow(it.candidate.comment))
+                           : std::wstring());
+  }
+  rime_api->candidate_list_end(&it);
+  if (texts.empty())
+    return;
+  size_t n = texts.size();
+  cinfo.candies.resize(n);
+  cinfo.comments.resize(n);
+  cinfo.labels.resize(n);
+  for (size_t i = 0; i < n; ++i) {
+    cinfo.candies[i].str = texts[i];
+    cinfo.comments[i].str = comments[i];
+    size_t k = i % cols;
+    cinfo.labels[i].str = k < row_labels.size()
+                              ? row_labels[k]
+                              : std::to_wstring((k + 1) % 10);
+  }
+  int cur = ctx.menu.page_no * ctx.menu.page_size +
+            ctx.menu.highlighted_candidate_index;
+  cinfo.highlighted = cur - start;
+  cinfo.currentPage = start / count;
+  cinfo.is_last_page = !more;
+}
+
+// [jk] largest grid the panel can draw (MAX_CANDIDATES_COUNT in WeaselUI)
+static const int kJkMaxGrid = 100;
+
+int RimeWithWeaselHandler::_JkGridStart(RimeSessionId session_id,
+                                        int* cols,
+                                        int* count) {
+  if (!session_id)
+    return -1;
+  char prop[16] = {0};
+  if (!rime_api->get_property(session_id, "jk_expand", prop, sizeof(prop) - 1))
+    return -1;
+  int rows = atoi(prop);
+  RIME_STRUCT(RimeContext, ctx);
+  if (rows <= 1 || !rime_api->get_context(session_id, &ctx))
+    return -1;
+  int ps = ctx.menu.page_size;
+  int cur = ctx.menu.page_no * ps + ctx.menu.highlighted_candidate_index;
+  bool has_menu = ctx.menu.num_candidates > 0;
+  rime_api->free_context(&ctx);
+  if (!has_menu || ps <= 0)
+    return -1;
+  rows = (std::min)(rows, kJkMaxGrid / ps);
+  if (rows <= 1)
+    return -1;
+  int big = rows * ps;
+  if (cols)
+    *cols = ps;
+  if (count)
+    *count = big;
+  return (cur / big) * big;
 }
 
 void RimeWithWeaselHandler::StartMaintenance() {
@@ -964,7 +1058,7 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
       CandidateInfo cinfo;
       std::wstringstream ss;
       boost::archive::text_woarchive oa(ss);
-      _GetCandidateInfo(cinfo, ctx);
+      _GetCandidateInfo(cinfo, ctx, session_id);
 
       oa << cinfo;
 
@@ -1000,6 +1094,15 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
     } else if (!want && session_status.jk_menu_vertical) {
       session_status.style.layout_type = session_status.jk_saved_layout;
       session_status.jk_menu_vertical = false;
+      session_status.__synced = false;
+    }
+  }
+  // [jk] expanded grid: tell the panel how many candidates go in one row
+  {
+    int cols = 0;
+    int gc = (is_composing && _JkGridStart(session_id, &cols) >= 0) ? cols : 0;
+    if (session_status.style.grid_columns != gc) {
+      session_status.style.grid_columns = gc;
       session_status.__synced = false;
     }
   }
@@ -1563,7 +1666,7 @@ void RimeWithWeaselHandler::_GetContext(Context& weasel_context,
     }
     if (ctx.menu.num_candidates) {
       CandidateInfo& cinfo(weasel_context.cinfo);
-      _GetCandidateInfo(cinfo, ctx);
+      _GetCandidateInfo(cinfo, ctx, session_id);
     }
     rime_api->free_context(&ctx);
   }

@@ -310,6 +310,9 @@ struct UIStyle {
   // is open (Ctrl+Shift+S switcher, or a Lua menu that sets the session
   // property jk_layout=vertical, e.g. /s /o)
   bool vertical_menus;
+  // [jk] expanded candidate grid: > 0 = candidates per row (horizontal) or per
+  // column (vertical); set by the server while Lua property jk_expand is set
+  int grid_columns;
 
   UIStyle()
       : font_face(),
@@ -387,7 +390,8 @@ struct UIStyle {
         fixed_y(0),
         preedit_font_face(),
         preedit_font_point(0),
-        vertical_menus(true) {}
+        vertical_menus(true),
+        grid_columns(0) {}
   bool operator!=(const UIStyle& st) {
     return (
         align_type != st.align_type || antialias_mode != st.antialias_mode ||
@@ -450,7 +454,8 @@ struct UIStyle {
         inline_candidate != st.inline_candidate ||
         fixed_position != st.fixed_position || fixed_x != st.fixed_x ||
         fixed_y != st.fixed_y || preedit_font_face != st.preedit_font_face ||
-        preedit_font_point != st.preedit_font_point);
+        preedit_font_point != st.preedit_font_point ||
+        grid_columns != st.grid_columns);
   }
 };
 }  // namespace weasel
@@ -537,6 +542,7 @@ void serialize(Archive& ar, weasel::UIStyle& s, const unsigned int version) {
   ar & s.fixed_y;
   ar & s.preedit_font_face;
   ar & s.preedit_font_point;
+  ar & s.grid_columns;
 }
 
 template <typename Archive>

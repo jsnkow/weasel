@@ -67,6 +67,17 @@ class StandardLayout : public Layout {
   void _PrepareRoundInfo(CDCHandle& dc);
 
   void UpdateStatusIconLayout(int* width, int* height);
+  // [jk] expanded grid (style.grid_columns > 0): places all candidates in
+  // aligned columns starting at (left, top); horizontal = grid_columns per
+  // row, else grid_columns per column. Returns the grid's size.
+  void _JkLayoutGrid(PDWR pDWR,
+                     int left,
+                     int top,
+                     bool horizontal,
+                     int base_offset,
+                     int* out_w,
+                     int* out_h);
+  void _JkResetRoundInfo();
 
   CSize _beforesz, _hilitedsz, _aftersz;
   weasel::TextRange _range;

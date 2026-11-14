@@ -393,3 +393,94 @@ bool StandardLayout::ShouldDisplayStatusIcon() const {
             _style.layout_type == UIStyle::LAYOUT_VERTICAL_FULLSCREEN) &&
            !_context.aux.empty());
 }
+
+// [jk] expanded grid ------------------------------------------------------
+void StandardLayout::_JkLayoutGrid(PDWR pDWR,
+                                   int left,
+                                   int top,
+                                   bool horizontal,
+                                   int base_offset,
+                                   int* out_w,
+                                   int* out_h) {
+  const int g = max(1, _style.grid_columns);
+  const int n = min(candidates_count, MAX_CANDIDATES_COUNT);
+  const int sp = _style.hilite_spacing;
+  const int gap = _style.candidate_spacing;
+  int lw[MAX_CANDIDATES_COUNT] = {0}, lh[MAX_CANDIDATES_COUNT] = {0};
+  int tw[MAX_CANDIDATES_COUNT] = {0}, th[MAX_CANDIDATES_COUNT] = {0};
+  int cw[MAX_CANDIDATES_COUNT] = {0}, ch[MAX_CANDIDATES_COUNT] = {0};
+  bool cshow[MAX_CANDIDATES_COUNT] = {false};
+  int col_lab[MAX_CANDIDATES_COUNT] = {0};   // widest label in the column
+  int col_rest[MAX_CANDIDATES_COUNT] = {0};  // widest text (+comment)
+  int col_w[MAX_CANDIDATES_COUNT] = {0}, col_x[MAX_CANDIDATES_COUNT] = {0};
+  int row_h[MAX_CANDIDATES_COUNT] = {0}, row_y[MAX_CANDIDATES_COUNT] = {0};
+  int ncols = 0, nrows = 0;
+
+  for (int i = 0; i < n; ++i) {
+    int c = horizontal ? i % g : i / g;
+    int r = horizontal ? i / g : i % g;
+    CSize s;
+    std::wstring label =
+        GetLabelText(labels, i, _style.label_text_format.c_str());
+    GetTextSizeDW(label, label.length(), pDWR->pLabelTextFormat, pDWR, &s);
+    lw[i] = s.cx * labelFontValid;
+    lh[i] = s.cy * labelFontValid;
+    const std::wstring& text = candidates.at(i).str;
+    GetTextSizeDW(text, text.length(), pDWR->pTextFormat, pDWR, &s);
+    tw[i] = s.cx * textFontValid;
+    th[i] = s.cy * textFontValid;
+    bool cmtFontNotTrans =
+        (i == id && (_style.hilited_comment_text_color & 0xff000000)) ||
+        (i != id && (_style.comment_text_color & 0xff000000));
+    cshow[i] = !comments.at(i).str.empty() && cmtFontValid && cmtFontNotTrans;
+    if (cshow[i]) {
+      const std::wstring& comment = comments.at(i).str;
+      GetTextSizeDW(comment, comment.length(), pDWR->pCommentTextFormat, pDWR,
+                    &s);
+      cw[i] = s.cx;
+      ch[i] = s.cy;
+    }
+    col_lab[c] = max(col_lab[c], lw[i]);
+    col_rest[c] = max(col_rest[c], tw[i] + (cshow[i] ? sp + cw[i] : 0));
+    row_h[r] = max(row_h[r], max(lh[i], max(th[i], ch[i])));
+    ncols = max(ncols, c + 1);
+    nrows = max(nrows, r + 1);
+  }
+  for (int c = 0; c < ncols; ++c) {
+    col_w[c] = base_offset + col_lab[c] + sp + col_rest[c];
+    col_x[c] = (c == 0) ? left : col_x[c - 1] + col_w[c - 1] + gap;
+  }
+  for (int r = 0; r < nrows; ++r)
+    row_y[r] = (r == 0) ? top : row_y[r - 1] + row_h[r - 1] + gap;
+
+  auto off = [&](int H, int h) {
+    if (_style.align_type == UIStyle::ALIGN_CENTER)
+      return (H - h) / 2;
+    if (_style.align_type == UIStyle::ALIGN_BOTTOM)
+      return H - h;
+    return 0;
+  };
+  for (int i = 0; i < n; ++i) {
+    int c = horizontal ? i % g : i / g;
+    int r = horizontal ? i / g : i % g;
+    int H = row_h[r], y = row_y[r];
+    int x = col_x[c] + base_offset;
+    _candidateLabelRects[i].SetRect(x, y + off(H, lh[i]), x + lw[i],
+                                    y + off(H, lh[i]) + lh[i]);
+    int xt = x + col_lab[c] + sp;
+    _candidateTextRects[i].SetRect(xt, y + off(H, th[i]), xt + tw[i],
+                                   y + off(H, th[i]) + th[i]);
+    int xc = xt + tw[i] + (cshow[i] ? sp : 0);
+    _candidateCommentRects[i].SetRect(xc, y + off(H, ch[i]), xc + cw[i],
+                                      y + off(H, ch[i]) + ch[i]);
+    _candidateRects[i].SetRect(col_x[c], y, col_x[c] + col_w[c], y + H);
+  }
+  *out_w = ncols ? col_x[ncols - 1] + col_w[ncols - 1] - left : 0;
+  *out_h = nrows ? row_y[nrows - 1] + row_h[nrows - 1] - top : 0;
+}
+
+void StandardLayout::_JkResetRoundInfo() {
+  // plain rounded highlight in every cell
+  for (int i = 0; i < MAX_CANDIDATES_COUNT; ++i)
+    _roundInfo[i] = IsToRoundStruct();
+}

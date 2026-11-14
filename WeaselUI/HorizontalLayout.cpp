@@ -80,6 +80,15 @@ void HorizontalLayout::DoLayout(CDCHandle dc, PDWR pDWR) {
   int height_of_rows[MAX_CANDIDATES_COUNT] = {0};    // height of every row
   int row_of_candidate[MAX_CANDIDATES_COUNT] = {0};  // row info of every cand
   int mintop_of_rows[MAX_CANDIDATES_COUNT] = {0};
+  // [jk] expanded grid
+  const bool jk_grid = _style.grid_columns > 0 && candidates_count > 0;
+  if (jk_grid) {
+    int gw = 0, gh = 0;
+    _JkLayoutGrid(pDWR, offsetX + real_margin_x, height, true, base_offset, &gw,
+                  &gh);
+    height = height + gh - offsetY;
+    width = max(width, offsetX + real_margin_x + gw);
+  } else
   // only when there are candidates
   if (candidates_count) {
     w = offsetX + real_margin_x;
@@ -209,7 +218,7 @@ void HorizontalLayout::DoLayout(CDCHandle dc, PDWR pDWR) {
     width = max(width, _style.min_width);
     height = max(height, _style.min_height);
   }
-  if (candidates_count) {
+  if (candidates_count && !jk_grid) {
     for (auto i = 0; i < candidates_count && i < MAX_CANDIDATES_COUNT; ++i) {
       // make rightest candidate's rect right the same for better look
       if ((i < candidates_count - 1 &&
@@ -243,8 +252,10 @@ void HorizontalLayout::DoLayout(CDCHandle dc, PDWR pDWR) {
   _bgRect.DeflateRect(offsetX + 1, offsetY + 1);
   // prepare round info for single row status, only for single row situation
   _PrepareRoundInfo(dc);
+  if (jk_grid)
+    _JkResetRoundInfo();
   // readjust for multi rows
-  if (row_cnt)  // row_cnt > 0, at least 2 candidates
+  else if (row_cnt)  // row_cnt > 0, at least 2 candidates
   {
     _roundInfo[0].IsBottomLeftNeedToRound = false;
     _roundInfo[candidates_count - 1].IsTopRightNeedToRound = false;

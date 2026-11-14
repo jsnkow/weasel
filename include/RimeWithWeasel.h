@@ -79,7 +79,13 @@ class RimeWithWeaselHandler : public weasel::RequestHandler {
   bool _ShowMessage(weasel::Context& ctx, weasel::Status& status);
   bool _Respond(WeaselSessionId ipc_id, EatLine eat);
   void _ReadClientInfo(WeaselSessionId ipc_id, LPWSTR buffer);
-  void _GetCandidateInfo(weasel::CandidateInfo& cinfo, RimeContext& ctx);
+  void _GetCandidateInfo(weasel::CandidateInfo& cinfo,
+                         RimeContext& ctx,
+                         RimeSessionId session_id = 0);
+  // [jk] expanded grid: index of the first candidate shown, or -1 if not
+  // expanded; *cols = candidates per row (page size)
+  int _JkGridStart(RimeSessionId session_id, int* cols = nullptr,
+                   int* count = nullptr);
   void _GetStatus(weasel::Status& stat,
                   WeaselSessionId ipc_id,
                   weasel::Context& ctx);

@@ -196,11 +196,11 @@ bool WeaselServerApp::JkOpenSettingsGui() {
   if (exe.is_relative())
     exe = rime_dir / exe;
   if (!fs::exists(exe)) {
-    std::wstring msg = L"DirectPinyin settings form not found:\n" +
+    std::wstring msg = L"Personalize form not found:\n" +
                        exe.wstring() +
                        L"\n\nInstall it with patch\\install-weasel-patch.ps1 "
                        L"(copies settingsGUI\\publish).";
-    MessageBoxW(NULL, msg.c_str(), L"DirectPinyin", MB_OK | MB_ICONWARNING);
+    MessageBoxW(NULL, msg.c_str(), L"Personalize", MB_OK | MB_ICONWARNING);
     return false;
   }
   return execute(exe, std::wstring());
